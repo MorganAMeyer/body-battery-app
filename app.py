@@ -1,5 +1,15 @@
 import streamlit as st
 
+with st.expander("Auth diagnostics"):
+    ok1 = "auth" in st.secrets and "redirect_uri" in st.secrets["auth"] and "cookie_secret" in st.secrets["auth"]
+    okG = "auth" in st.secrets and "google" in st.secrets["auth"]
+    okM = "auth" in st.secrets and "microsoft" in st.secrets["auth"]
+    st.write({
+        "has [auth].redirect_uri & cookie_secret": ok1,
+        "has [auth.google] block": okG,
+        "has [auth.microsoft] block": okM,
+    })
+
 # =========================
 # App setup
 # =========================
@@ -40,13 +50,10 @@ def compute_body_battery(
 # Requires Streamlit ≥ 1.42 with OIDC configured in secrets.
 # Docs: st.login / st.user / st.logout. :contentReference[oaicite:0]{index=0}
 if not st.user.is_logged_in:
-    st.info("Sign in to use the tool.")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.button("Log in with Google", on_click=st.login, args=["google"])
-    with c2:
-        st.button("Log in with Microsoft", on_click=st.login, args=["microsoft"])
+    st.button("Log in with Google", on_click=st.login, args=["google"])
+    st.button("Log in with Microsoft", on_click=st.login, args=["microsoft"])
     st.stop()
+
 
 st.success(f"Welcome {st.user.name or ''} {f'({st.user.email})' if st.user.email else ''}")
 st.button("Log out", on_click=st.logout)
