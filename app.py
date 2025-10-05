@@ -1,12 +1,22 @@
 import streamlit as st
 
-# ---- Tunable coefficients (all in one place) ----
-STEPS_W = 0.0005       # was 0.02   → now 0.5 points per 1000 steps
-MODERATE_W = 0.10      # was 0.15   → 30 min ≈ 3 points
-VIGOROUS_W = 0.30      # was 0.35   → 10 min ≈ 3 points
-SLEEP_HOURS_W = 3.0    # unchanged  → per hour above/below 7 h
-SLEEP_QUALITY_W = 0.15 # unchanged
-HR_STRESS_W = 0.9      # unchanged
+# =========================
+# App setup
+# =========================
+st.set_page_config(page_title="Body Battery", page_icon="🔋", layout="centered")
+st.title("🔋 Body Battery")
+st.caption("Toy model for educational purposes — not medical advice.")
+
+# =========================
+# Simple scoring model (no persistence)
+# =========================
+# Tunable weights
+STEPS_W         = 0.0005
+MODERATE_W      = 0.10
+VIGOROUS_W      = 0.30
+SLEEP_HOURS_W   = 3.0
+SLEEP_QUALITY_W = 0.15
+HR_STRESS_W     = 0.9
 
 def compute_body_battery(
     sleep_hours: float,
@@ -17,23 +27,33 @@ def compute_body_battery(
     rhr: int,
     rhr_baseline: int
 ):
-    # Contributions
-    sleep_gain = SLEEP_HOURS_W * (sleep_hours - 7.0) + SLEEP_QUALITY_W * sleep_quality
+    sleep_gain    = SLEEP_HOURS_W * (sleep_hours - 7.0) + SLEEP_QUALITY_W * sleep_quality
     activity_load = STEPS_W * steps + MODERATE_W * moderate_min + VIGOROUS_W * vigorous_min
-    hr_stress = max(0.0, (rhr - rhr_baseline)) * HR_STRESS_W
-
-    raw = 50.0 + sleep_gain - activity_load - hr_stress
+    hr_stress     = max(0.0, (rhr - rhr_baseline)) * HR_STRESS_W
+    raw   = 50.0 + sleep_gain - activity_load - hr_stress
     score = max(0.0, min(100.0, round(raw, 1)))
     return score, sleep_gain, activity_load, hr_stress, round(raw, 1)
 
-st.set_page_config(page_title="Body Battery (Demo)", page_icon="🔋", layout="centered")
-st.title("🔋 Body Battery (Demo)")
-st.caption("Toy model for educational purposes — not medical advice.")
+# =========================
+# Auth Gate (Streamlit OIDC)
+# =========================
+# Requires Streamlit ≥ 1.42 with OIDC configured in secrets.
+# Docs: st.login / st.user / st.logout. :contentReference[oaicite:0]{index=0}
+if not st.user.is_logged_in:
+    st.info("Sign in to use the tool.")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.button("Log in with Google", on_click=st.login, args=["google"])
+    with c2:
+        st.button("Log in with Microsoft", on_click=st.login, args=["microsoft"])
+    st.stop()
 
-with st.sidebar:
-    st.header("Settings")
-    st.write("Tweak the coefficients at the top if the scale feels off.")
+st.success(f"Welcome {st.user.name or ''} {f'({st.user.email})' if st.user.email else ''}")
+st.button("Log out", on_click=st.logout)
 
+# =========================
+# UI (no saving—just use it)
+# =========================
 st.subheader("Sleep (last night)")
 col1, col2 = st.columns(2)
 with col1:
@@ -65,7 +85,6 @@ st.markdown("---")
 st.metric(label="Estimated Body Battery", value=f"{score} / 100")
 st.progress(int(score))
 
-st.markdown("### What influenced this?")
 with st.expander("Show contributions"):
     st.write(
         f"- **Sleep gain**: +{sleep_gain:.1f}\n"
